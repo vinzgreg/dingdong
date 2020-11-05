@@ -1,0 +1,139 @@
+/*
+    Connecting your old fashioned door-bell (9V AC) with Homematic CCU2 (or other). The door bell usually is activated via a 9V AC transformer (see poto).
+    A switch connects transformator with the bell. You'll need to cut this connection and put a small module in between.
+    No worries, the door-bell will keep working, even if this module is broken :-D
+    
+    The button press of door-bell is detected by measuing the current. It triggers a routine sending a HTTP request to CCU2 running a program.
+    The program on CCU2 can send a push-notification to your mobile or switch on the light or whatever.
+    
+    You'll need:
+    Arduino, NodeMCU (ESP8266), USB to micro-USB, USB-charger
+    A bit of electronic components: 2R (1W), 1kR, 22kR, 10uF, 10kR, NPN transistor like BC548, PCB or breadboard, a bit of wires.
+
+    Set up a program on you CCU2 which then will be called:
+      Details here: https://www.homematic-inside.de/software/xml-api
+      You'll find the program-ID by calling (replace the IP) http://192.168.XXX.XXX/config/xmlapi/programlist.cgi
+      Add your program-ID below
+      
+    Modify params for SSID, Passwort, IP-address of CCU2 and program-ID
+*/
+
+#include <ESP8266WiFi.h>
+
+#ifndef STASSID
+#define STASSID "YOUR_SSID"    // Your SSID
+#define STAPSK  "YOUR_PWD_OF_SSID"   // Your SSID's password
+#endif
+
+const char* ssid     = STASSID;
+const char* password = STAPSK;
+
+// HomeMatic CCU2 IP address
+const char* serverccu = "192.168.XX.XXX";             // Your CCU2's IP address
+const uint16_t port = 80;
+
+// Button
+const int buttonPin = 5;     // the number of the pushbutton pin
+const int ledPin =  13;      // the number of the LED pin
+
+int buttonState = 0;         // variable for reading the pushbutton status
+
+
+void setup() {
+  Serial.begin(115200);
+
+  // We start by connecting to a WiFi network
+
+  Serial.println();
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+
+  /* Explicitly set the ESP8266 to be a WiFi-client, otherwise, it by default,
+     would try to act as both a client and an access-point and could cause
+     network-issues with your other WiFi-devices on your WiFi-network. */
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+
+  // initialize digital pin LED_BUILTIN as an output.
+  pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(buttonPin, INPUT);
+}
+
+
+// The routine calling CCU2 via web request.
+void dingdong() {
+  // Use WiFiClient class to create TCP connections
+  Serial.print("Connecting to HomeMatic");
+  WiFiClient client;
+
+  if (client.connect(serverccu, 80))
+  {
+    // Aufruf CCU2-Server
+    Serial.println("Daten an CCU2 senden - Verbindung zum Server...");
+    
+    // You'll need to add a program on CCU2 and identify the 5 digit number of the program-ID
+    // Details here: https://www.homematic-inside.de/software/xml-api
+    // You'll find the program-ID by calling (replace the IP) http://192.168.XXX.XXX/config/xmlapi/programlist.cgi
+    client.println("GET /config/xmlapi/runprogram.cgi?program_id=25524 HTTP/1.0");   
+    client.println();
+    /* Alternatively transmitting a variable: 
+    /config/xmlapi/statechange.cgi?ise_id=XXXX&value_list.=");
+    client.print(VARIABLE_X);
+    */
+
+    Serial.println("connecting to CCU2 ...");
+    while (client.available()) {
+      client.read();
+}
+  } 
+  else
+  {
+    Serial.println(" ERROR: not connected to CCU2 Server!");
+  } 
+
+  // Close the connection
+  Serial.println();
+  Serial.println("closing connection");
+  client.stop();
+
+}
+
+
+void loop() {
+  
+  // LED off
+  digitalWrite(ledPin, LOW);
+
+
+  // read the state of the pushbutton value:
+  buttonState = digitalRead(buttonPin);
+
+  // check if the pushbutton is pressed. If it is, the buttonState is HIGH:
+  if (buttonState == LOW) {
+    // turn LED on:
+    digitalWrite(ledPin, HIGH);
+    Serial.println("Button pressed....\n");
+    dingdong();
+    
+    // Pause for 10 sec (swarm protect)
+    delay(10000);
+    
+  } else {
+    // turn LED off:
+    digitalWrite(ledPin, LOW);
+  }
+
+  // 100ms pause, poll doorbell switch every 100ms
+  delay(100);
+}
