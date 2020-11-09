@@ -24,3 +24,7 @@ Set up a program on you CCU2 which then will be called:
 Details here: https://www.homematic-inside.de/software/xml-api
 - You'll find the program-ID by calling (replace the IP) http://192.168.XXX.XXX/config/xmlapi/programlist.cgi
 - Add your program-ID to the code
+
+## Pinout Node MCU
+https://randomnerdtutorials.com/esp8266-pinout-reference-gpios/
+buttonPin = 5, GPIO D1
